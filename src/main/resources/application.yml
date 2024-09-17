@@ -26,12 +26,12 @@ spring:
     password: 123456
   # Redis 配置
   # todo 需替换配置，然后取消注释
-#  redis:
-#    database: 1
-#    host: localhost
-#    port: 6379
-#    timeout: 5000
-#    password: 123456
+  redis:
+    database: 1
+    host: localhost
+    port: 6379
+    timeout: 5000
+    password: 123456
   # Elasticsearch 配置
   # todo 需替换配置，然后取消注释
 #  elasticsearch:
@@ -106,3 +106,9 @@ yuapi:
   client:
     access-key: mm57i4qw9hhawekvwiuaan9e0lgd8r8v
     secret-key: zp3akm6dqckapbi7afy6lxsyietjn233
+## 讯飞 AI 配置
+xun-fei:
+  client:
+    appId: 27234306
+    apiSecret: OWNlNWYzOTRlZjFmNWJmNTRhY2U5YmEx
+    apiKey: 77defb448ed4e39fd5a32b68975a891d

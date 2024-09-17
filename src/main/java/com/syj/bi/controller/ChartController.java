@@ -1,6 +1,10 @@
 package com.syj.bi.controller;
-import java.util.Date;
 
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.syj.bi.annotation.AuthCheck;
@@ -13,6 +17,7 @@ import com.syj.bi.constant.UserConstant;
 import com.syj.bi.exception.BusinessException;
 import com.syj.bi.exception.ThrowUtils;
 import com.syj.bi.manager.AiManager;
+import com.syj.bi.manager.RedisLimiterManager;
 import com.syj.bi.model.dto.chart.*;
 import com.syj.bi.model.entity.Chart;
 import com.syj.bi.model.entity.User;
@@ -52,6 +57,9 @@ public class ChartController {
 
     @Resource
     private AiManager aiManager;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
 
     // region 增删改查
 
@@ -222,14 +230,28 @@ public class ChartController {
      */
     @PostMapping("/gen")
     public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                             GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String chartType = genChartByAiRequest.getChartType();
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         //校验
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(name) && name.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
+        //校验文件
+        String originalFilename = multipartFile.getOriginalFilename();
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大,文件大小不能超过1MB");
+        //校验文件名后缀
+        String suffix = FileUtil.getSuffix(originalFilename);
+//        final List<String> validFileSuffix = Arrays.asList("png", "jpg", "jpeg", "svg", "webp");
+        final List<String> validFileSuffix = Arrays.asList("xlsx", "xls");
+        ThrowUtils.throwIf(!validFileSuffix.contains(suffix), ErrorCode.PARAMS_ERROR, "文件类型不支持");
+
         User loginUser = userService.getLoginUser(request);
+        //对请求进行限流判断
+        //这里的限流是针对某个用户的某个方法限流
+        redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
         //模型预设prompt
         Long biModelId = 1659171950288818178L;
         //用户输入
@@ -242,10 +264,11 @@ public class ChartController {
 //        3号,30
         ///构造用户输入
         StringBuilder userInput = new StringBuilder();
+        userInput.append(AiManager.PRECONDITION);
         userInput.append("分析需求:").append("\n");
         String userGoal = goal;
-        if(StringUtils.isNotEmpty(chartType)){
-            userGoal+=".请使用"+chartType;
+        if (StringUtils.isNotEmpty(chartType)) {
+            userGoal += ".请使用" + chartType;
 
         }
         userInput.append(userGoal).append("\n");
@@ -253,10 +276,13 @@ public class ChartController {
         //压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
-        String result = aiManager.doChat(biModelId, userInput.toString());
-        String[] split = result.split("【【【【【");
-        if (split.length<3){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"AI 数据生成错误");
+        //使用的是鱼聪明AI,因后续收费问题，改用科大讯飞版本
+//        String result = aiManager.doChat(biModelId, userInput.toString());
+        //科大讯飞版本
+        String result = aiManager.sendMsgToXingHuo(userInput.toString());
+        String[] split = result.split("'【【【【【'");
+        if (split.length < 3) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 数据生成错误");
         }
         //截取获得生成的图表代码和分析结论
         String genChart = split[1];
@@ -279,33 +305,33 @@ public class ChartController {
         return ResultUtils.success(biResponse);
     }
 
-/**
- * 获取查询包装类
- *
- * @param chartQueryRequest
- * @return
- */
-private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {
-    QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
-    if (chartQueryRequest == null) {
+    /**
+     * 获取查询包装类
+     *
+     * @param chartQueryRequest
+     * @return
+     */
+    private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {
+        QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
+        if (chartQueryRequest == null) {
+            return queryWrapper;
+        }
+        Long id = chartQueryRequest.getId();
+        String name = chartQueryRequest.getName();
+        String goal = chartQueryRequest.getGoal();
+        String chartType = chartQueryRequest.getChartType();
+        Long userId = chartQueryRequest.getUserId();
+        String sortField = chartQueryRequest.getSortField();
+        String sortOrder = chartQueryRequest.getSortOrder();
+
+        queryWrapper.eq(id != null && id > 0, "id", id);
+        queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
+        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
+        queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
+        queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
+        queryWrapper.eq("isDelete", false);
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+                sortField);
         return queryWrapper;
     }
-    Long id = chartQueryRequest.getId();
-    String name = chartQueryRequest.getName();
-    String goal = chartQueryRequest.getGoal();
-    String chartType = chartQueryRequest.getChartType();
-    Long userId = chartQueryRequest.getUserId();
-    String sortField = chartQueryRequest.getSortField();
-    String sortOrder = chartQueryRequest.getSortOrder();
-
-    queryWrapper.eq(id != null && id > 0, "id", id);
-    queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
-    queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
-    queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
-    queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
-    queryWrapper.eq("isDelete", false);
-    queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
-            sortField);
-    return queryWrapper;
-}
 }
