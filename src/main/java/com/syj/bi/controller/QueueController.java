@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,6 +51,7 @@ import static com.syj.bi.common.ResultUtils.success;
 @RestController
 @RequestMapping("/queue")
 @Slf4j
+@Profile({"dev", "local"})
 public class QueueController {
 
     @Resource

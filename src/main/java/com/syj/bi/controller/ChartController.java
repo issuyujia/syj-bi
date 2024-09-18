@@ -3,6 +3,8 @@ package com.syj.bi.controller;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -60,6 +62,9 @@ public class ChartController {
 
     @Resource
     private RedisLimiterManager redisLimiterManager;
+
+    @Resource
+    private ThreadPoolExecutor threadPoolExecutor;
 
     // region 增删改查
 
@@ -221,7 +226,115 @@ public class ChartController {
     }
 
     /**
-     * 智能分析
+     * 智能分析,采用异步化的方式生成
+     *
+     * @param multipartFile
+     * @param genChartByAiRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/gen/async")
+    public BaseResponse<BiResponse> genChartByAiAsync(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        String chartType = genChartByAiRequest.getChartType();
+        String name = genChartByAiRequest.getName();
+        String goal = genChartByAiRequest.getGoal();
+        //校验
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(name) && name.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
+        //校验文件
+        String originalFilename = multipartFile.getOriginalFilename();
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大,文件大小不能超过1MB");
+        //校验文件名后缀
+        String suffix = FileUtil.getSuffix(originalFilename);
+//        final List<String> validFileSuffix = Arrays.asList("png", "jpg", "jpeg", "svg", "webp");
+        final List<String> validFileSuffix = Arrays.asList("xlsx", "xls");
+        ThrowUtils.throwIf(!validFileSuffix.contains(suffix), ErrorCode.PARAMS_ERROR, "文件类型不支持");
+
+        User loginUser = userService.getLoginUser(request);
+        //对请求进行限流判断
+        //这里的限流是针对某个用户的某个方法限流
+        redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
+        //模型预设prompt
+        Long biModelId = 1659171950288818178L;
+        //用户输入
+//        分析需求：
+//        分析网站用户的增长情况
+//        原始数据：
+//        日期,用户数
+//        1号,10
+//        2号,20
+//        3号,30
+        ///构造用户输入
+        StringBuilder userInput = new StringBuilder();
+        userInput.append(AiManager.PRECONDITION);
+        userInput.append("分析需求:").append("\n");
+        String userGoal = goal;
+        if (StringUtils.isNotEmpty(chartType)) {
+            userGoal += ".请使用" + chartType;
+
+        }
+        userInput.append(userGoal).append("\n");
+        userInput.append("原始数据:").append("\n");
+        //压缩后的数据
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(csvData).append("\n");
+        //将生成的数据插入到数据库中去
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus("wait");
+        chart.setUserId(loginUser.getId());
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        //使用的是鱼聪明AI,因后续收费问题，改用科大讯飞版本
+//        String result = aiManager.doChat(biModelId, userInput.toString());
+        //科大讯飞版本
+        //使用异步方式去发起调用请求
+        CompletableFuture.runAsync(()->{
+            //调用ai接口的时候，先修改图表任务状态为执行中，然后修改为执行成功,如果执行失败，就修改为失败，并且记录下任务失败信息
+           //调用AI
+            Chart updateChart = new Chart();
+            updateChart.setId(chart.getId());
+            updateChart.setStatus("running");
+            boolean b = chartService.updateById(updateChart);
+            if(!b){
+                handleChartUpdateError(chart.getId(),"更新图表状态失败");
+                return;
+            }
+            String result = aiManager.sendMsgToXingHuo(userInput.toString());
+            String[] split = result.split("'【【【【【'");
+            if (split.length < 3) {
+                handleChartUpdateError(chart.getId(),"AI 数据生成错误");
+                return;
+            }
+            //截取获得生成的图表代码和分析结论
+            String genChart = split[1];
+            String genResult = split[2];
+            //更新成功修改状态
+            Chart updateChartResult = new Chart();
+            updateChartResult.setId(chart.getId());
+            updateChartResult.setStatus("succeed");
+            updateChartResult.setGenChart(genChart);
+            updateChartResult.setGenResult(genResult);
+            boolean b1 = chartService.updateById(updateChartResult);
+            if(!b1){
+                handleChartUpdateError(chart.getId(),"更新图表状态失败");
+            }
+        },threadPoolExecutor);
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+        return ResultUtils.success(biResponse);
+    }
+
+    /**
+     * 智能分析,采用的是同步的生成方式
      *
      * @param multipartFile
      * @param genChartByAiRequest
@@ -305,6 +418,16 @@ public class ChartController {
         return ResultUtils.success(biResponse);
     }
 
+    private void handleChartUpdateError(long chartId,String execMessage){
+        Chart updateChart = new Chart();
+        updateChart.setId(chartId);
+        updateChart.setStatus("failed");
+        updateChart.setExecMessage(execMessage);
+        boolean b = chartService.updateById(updateChart);
+        if(!b){
+            log.error("更新图表状态失败"+chartId+","+execMessage);
+        }
+    }
     /**
      * 获取查询包装类
      *

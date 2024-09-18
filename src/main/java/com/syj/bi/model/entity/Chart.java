@@ -11,9 +11,10 @@ import java.util.Date;
 
 /**
  * 图表信息表
+ *
  * @TableName chart
  */
-@TableName(value ="chart")
+@TableName(value = "chart")
 @Data
 public class Chart implements Serializable {
     /**
@@ -51,6 +52,16 @@ public class Chart implements Serializable {
      * 生成的分析结论
      */
     private String genResult;
+
+    /**
+     * 图表状态（wait,running,succeed,failed）
+     */
+    private String status;
+
+    /**
+     * 执行过程信息
+     */
+    private String execMessage;
 
     /**
      * 创建用户 id
