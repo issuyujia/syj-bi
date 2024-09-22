@@ -32,12 +32,17 @@ spring:
     port: 6379
     timeout: 5000
     password: 123456
+  rabbitmq:
+    port: 5672
+    host: localhost
+    username: guest
+    password: guest
   # Elasticsearch 配置
   # todo 需替换配置，然后取消注释
-#  elasticsearch:
-#    uris: http://localhost:9200
-#    username: root
-#    password: 123456
+  #  elasticsearch:
+  #    uris: http://localhost:9200
+  #    username: root
+  #    password: 123456
   # 文件上传
   servlet:
     multipart:
