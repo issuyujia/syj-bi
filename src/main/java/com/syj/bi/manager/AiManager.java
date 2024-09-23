@@ -45,7 +45,7 @@ public class AiManager {
             "{明确的数据分析结论、越详细越好，不要生成多余的注释} \n"
             + "下面是一个具体的例子的模板："
             + "'【【【【【'\n"
-            + "{\"xxx\": }"
+            + "{\"xxxx\": }"
             + "'【【【【【'\n" +
             "结论：";
 
@@ -77,6 +77,7 @@ public class AiManager {
         List<SparkMessage> messages = new ArrayList<>();
 //        messages.add(new SparkMessage(PRECONDITION,content));
         messages.add(SparkMessage.userContent(content));
+//        messages.add(SparkMessage.systemContent(PRECONDITION));
         // 构造请求
         SparkRequest sparkRequest = SparkRequest.builder()
                 // 消息列表

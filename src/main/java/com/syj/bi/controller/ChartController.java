@@ -393,28 +393,34 @@ public class ChartController {
         //压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
+        // 插入到数据库
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus("wait");
+        chart.setUserId(loginUser.getId());
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
         //使用的是鱼聪明AI,因后续收费问题，改用科大讯飞版本
 //        String result = aiManager.doChat(biModelId, userInput.toString());
         //科大讯飞版本
         String result = aiManager.sendMsgToXingHuo(userInput.toString());
         String[] split = result.split("'【【【【【'");
         if (split.length < 3) {
+            handleChartUpdateError(chart.getId(), "AI 数据生成错误");
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 数据生成错误");
         }
         //截取获得生成的图表代码和分析结论
         String genChart = split[1];
         String genResult = split[2];
         //将生成的数据插入到数据库中去
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
-        chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        chart.setStatus("succeed");
+        boolean saveAfterResult = chartService.updateById(chart);
+        ThrowUtils.throwIf(!saveAfterResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
         BiResponse biResponse = new BiResponse();
         biResponse.setGenChart(genChart);
         biResponse.setGenResult(genResult);
