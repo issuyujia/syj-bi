@@ -24,11 +24,12 @@ public class BigModelImage extends WebSocketListener {
     // 地址与鉴权信息  https://spark-api.xf-yun.com/v1.1/chat   1.5地址  domain参数为general
     // 地址与鉴权信息  https://spark-api.xf-yun.com/v2.1/chat   2.0地址  domain参数为generalv2
     public static final String hostUrl = "https://spark-api.cn-huabei-1.xf-yun.com/v2.1/image";
-    private static String appid = "27234306";
+    // TODO 替换为真实值
+    private static String appid = "xxx";
 
-    private static String apiSecret = "OWNlNWYzOTRlZjFmNWJmNTRhY2U5YmEx";
+    private static String apiSecret = "xxxx";
 
-    private static String apiKey = "77defb448ed4e39fd5a32b68975a891d";
+    private static String apiKey = "xxxx";
 
 //    public static List<RoleContent> historyList = new ArrayList<>(); // 对话历史存储集合
 

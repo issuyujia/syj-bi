@@ -1,6 +1,4 @@
 # 公共配置文件
-# @author <a href="https://github.com/lisyj">程序员鱼皮</a>
-# @from <a href="https://syj.icu">编程导航知识星球</a>
 spring:
   application:
     name: syjbi
@@ -109,14 +107,14 @@ knife4j:
 # 鱼聪明AI配置
 yuapi:
   client:
-    access-key: mm57i4qw9hhawekvwiuaan9e0lgd8r8v
-    secret-key: zp3akm6dqckapbi7afy6lxsyietjn233
+    access-key: xxxx
+    secret-key: xxxx
 ## 讯飞 AI 配置
 xun-fei:
   client:
-    appId: 27234306
-    apiSecret: OWNlNWYzOTRlZjFmNWJmNTRhY2U5YmEx
-    apiKey: 77defb448ed4e39fd5a32b68975a891d
+    appId: xxxx
+    apiSecret: xxxx
+    apiKey: xxx
 ## 讯飞文本识别配置
 xun-fei-text:
-  ai-url: https://api.xf-yun.com/v1/private/sf8e6aca1
+  ai-url: xxx

@@ -31,11 +31,12 @@ public class UniversalCharacterRecognition {
     private String requestUrl = "https://api.xf-yun.com/v1/private/sf8e6aca1";
 
     //控制台获取以下信息
-    private static String APPID = "27234306";
+    // TODO 替换为真实值
+    private static String APPID = "xxx";
 
-    private static String apiSecret = "OWNlNWYzOTRlZjFmNWJmNTRhY2U5YmEx";
+    private static String apiSecret = "xxx";
 
-    private static String apiKey = "77defb448ed4e39fd5a32b68975a891d";
+    private static String apiKey = "xxx";
 
     //文件存放位置
     private static File file = null;

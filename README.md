@@ -84,7 +84,7 @@
 
 
 
-![image-20240923152856900](./images/image-20240923152856900.png)
+![image-20240924162323237](./images/image-20240924162323237.png)
 
 ![image-20240923152817697](./images/image-20240923152817697.png)
 
@@ -104,9 +104,9 @@
 
 > 将图片中印刷或手写的文字转化为计算机可编码的文字，目前支持中文、英文
 
-![image-20240924155654161](C:\Users\山兮\AppData\Roaming\Typora\typora-user-images\image-20240924155654161.png)
+![image-20240924155654161](./images/image-20240924155654161.png)
 
-![image-20240924155718432](C:\Users\山兮\AppData\Roaming\Typora\typora-user-images\image-20240924155718432.png)
+![image-20240924155718432](./images/image-20240924155718432.png)
 
 ### 图片理解
 
@@ -114,9 +114,9 @@
 
 
 
-<img src="D:\Desktop\pig.png" alt="pig" style="zoom:50%;" />
+<img src="./images/pig.png" alt="pig" style="zoom:50%;" />
 
-![image-20240924160403117](C:\Users\山兮\AppData\Roaming\Typora\typora-user-images\image-20240924160403117.png)、![image-20240924160631140](C:\Users\山兮\AppData\Roaming\Typora\typora-user-images\image-20240924160631140.png)
+![image-20240924160403117](./images/image-20240924160403117.png)![image-20240924160631140](./images/image-20240924160631140.png)
 
 ## 快速启动
 
