@@ -5,12 +5,16 @@ import com.syj.bi.common.BaseResponse;
 import com.syj.bi.common.ErrorCode;
 import com.syj.bi.common.ResultUtils;
 import com.syj.bi.exception.BusinessException;
+import com.syj.bi.model.dto.image.UploadImageRequest;
+import com.syj.bi.model.entity.Image;
 import com.syj.bi.model.entity.User;
 import com.syj.bi.model.enums.FileUploadBizEnum;
+import com.syj.bi.service.ImageService;
 import com.syj.bi.service.UserService;
-import com.syj.bi.utils.text.UniversalCharacterRecognition;
+import com.syj.bi.utils.image.AiImageUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.redisson.api.RedissonClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -23,33 +27,40 @@ import java.io.File;
 import java.util.Arrays;
 
 /**
- * 文字识别接口
+ * 图片分析接口
+ *
  *
  */
 @RestController
-@RequestMapping("/text")
+@RequestMapping("/image")
 @Slf4j
-public class TextController {
+public class ImageController {
 
     @Resource
     private UserService userService;
 
+    @Resource
+    private RedissonClient redissonClient;
+    @Resource
+    private ImageService imageService;
     /**
      * 文件上传,并返回ai解析结果
      *
      * @param file
+     * @param uploadImageRequest
      * @param request
      * @return
      */
     @PostMapping("/upload")
-    public BaseResponse<String> uploadTextAnalysis(@RequestPart("file") MultipartFile file,
-                                                   HttpServletRequest request) {
-        String biz = "text_ai";
+    public BaseResponse<String> uploadImageAnalysis(@RequestPart("file") MultipartFile file,
+                                                    UploadImageRequest uploadImageRequest, HttpServletRequest request) {
+        String biz = "image_analyse";
+        String goal = uploadImageRequest.getGoal();
         FileUploadBizEnum fileUploadBizEnum = FileUploadBizEnum.getEnumByValue(biz);
         if (fileUploadBizEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        validFile(file, fileUploadBizEnum);
+        String fileSuffix = validFile(file, fileUploadBizEnum);
         User loginUser = userService.getLoginUser(request);
         // 文件目录：根据业务、用户来划分
         String uuid = RandomStringUtils.randomAlphanumeric(8);
@@ -61,9 +72,22 @@ public class TextController {
             newFile = File.createTempFile(filepath, null);
 
             file.transferTo(newFile);
-            UniversalCharacterRecognition ucr = new UniversalCharacterRecognition();
-            String ans = ucr.getRes(newFile);
-
+            Image image = new Image();
+            image.setGoal(goal);
+            image.setImageType(fileSuffix);
+            image.setBaseString("");
+            boolean save = imageService.save(image);
+            if (!save){
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR,"新增图片信息失败");
+            }
+            AiImageUtils aiImageUtils = new AiImageUtils(redissonClient);
+            String ans = aiImageUtils.getAns(newFile, goal,image.getId());
+            image.setGenResult(ans);
+            image.setState("succeed");
+            boolean update = imageService.updateById(image);
+            if (!update){
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更新图片信息失败");
+            }
             // 返回可访问地址
             return ResultUtils.success(ans);
         } catch (Exception e) {
@@ -86,19 +110,20 @@ public class TextController {
      * @param multipartFile
      * @param fileUploadBizEnum 业务类型
      */
-    private void validFile(MultipartFile multipartFile, FileUploadBizEnum fileUploadBizEnum) {
+    private String validFile(MultipartFile multipartFile, FileUploadBizEnum fileUploadBizEnum) {
         // 文件大小
         long fileSize = multipartFile.getSize();
         // 文件后缀
         String fileSuffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
-        final long ONE_M = 1024 * 1024L;
-        if (FileUploadBizEnum.USER_AVATAR.equals(fileUploadBizEnum)) {
-            if (fileSize > 3 * ONE_M) {
+        final long THREE_M = 3*1024 * 1024L;
+        if (FileUploadBizEnum.IMAGE_ANALYSE.equals(fileUploadBizEnum)) {
+            if (fileSize > THREE_M) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件大小不能超过 3M");
             }
-            if (!Arrays.asList("jpeg", "jpg", "png", "bmp").contains(fileSuffix)) {
+            if (!Arrays.asList("jpeg", "jpg", "svg", "png", "webp").contains(fileSuffix)) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件类型错误");
             }
         }
+        return fileSuffix;
     }
 }

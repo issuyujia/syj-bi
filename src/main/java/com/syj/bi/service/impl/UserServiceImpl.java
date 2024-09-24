@@ -24,19 +24,20 @@ import org.springframework.util.DigestUtils;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.syj.bi.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
-* @author 山兮
-* @description 针对表【user(用户)】的数据库操作Service实现
-* @createDate 2024-09-08 13:54:57
-*/
+ * @author 山兮
+ * @description 针对表【user(用户)】的数据库操作Service实现
+ * @createDate 2024-09-08 13:54:57
+ */
 @Service
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
-    implements UserService {
+        implements UserService {
     /**
      * 盐值，混淆密码
      */
@@ -72,6 +73,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             User user = new User();
             user.setUserAccount(userAccount);
             user.setUserPassword(encryptPassword);
+            //设置默认的用户名和头像
+            String defaultAvatar = "https://big-event-suyujia.oss-cn-beijing.aliyuncs.com/81bcda311590567f248ab0b708e3190e_1.jpg";
+            // 生成一个 UUID
+            UUID uuid = UUID.randomUUID();
+            // 将 UUID 转换为字符串，并附加前缀
+            String defaultUsername = "YUKA_" + uuid.toString().replaceAll("-", ""); // 移除短横线以使字符串更紧凑
+            user.setUserAvatar(defaultAvatar);
+            user.setUserName(defaultUsername);
             boolean saveResult = this.save(user);
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
