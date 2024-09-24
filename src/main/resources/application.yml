@@ -117,3 +117,6 @@ xun-fei:
     appId: 27234306
     apiSecret: OWNlNWYzOTRlZjFmNWJmNTRhY2U5YmEx
     apiKey: 77defb448ed4e39fd5a32b68975a891d
+## 讯飞文本识别配置
+xun-fei-text:
+  ai-url: https://api.xf-yun.com/v1/private/sf8e6aca1
