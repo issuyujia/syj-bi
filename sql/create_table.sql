@@ -35,6 +35,7 @@ create table if not exists chart
     genChart		 text	 null comment '生成的图表数据',
     genResult		 text	 null comment '生成的分析结论',
     status       varchar(128) not null default 'wait' comment 'wait,running,succeed,failed',
+    chartPath    varchar(255) comment '文件存储路径',
     execMessage  text null comment '执行信息',
     userId       bigint null comment '创建用户 id',
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',

@@ -1,4 +1,6 @@
 # 公共配置文件
+# @author <a href="https://github.com/lisyj">程序员鱼皮</a>
+# @from <a href="https://syj.icu">编程导航知识星球</a>
 spring:
   application:
     name: syjbi
@@ -117,4 +119,14 @@ xun-fei:
     apiKey: xxx
 ## 讯飞文本识别配置
 xun-fei-text:
-  ai-url: xxx
+  ai-url: https://api.xf-yun.com/v1/private/sf8e6aca1
+
+## minio配置
+  ## minio 配置
+minio:
+  enable: true
+  minio_url: ${MINIO_URL:http://127.0.0.1:9000/}
+  minio_name: ${MINIO_USERNAME:admin}
+  minio_pass: ${MINIO_PASSWORD:123456}
+  bucketName: ${MINIO_BUCKET_NAME:bi-file}
+  open_dir: /photo/*,/order/*,/chart/*,/async_chart/*,/mq_chart/*

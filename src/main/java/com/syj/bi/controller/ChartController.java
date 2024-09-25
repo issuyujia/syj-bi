@@ -1,8 +1,13 @@
 package com.syj.bi.controller;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -29,15 +34,18 @@ import com.syj.bi.service.ChartService;
 import com.syj.bi.service.UserService;
 import com.syj.bi.utils.ExcelUtils;
 import com.syj.bi.utils.SqlUtils;
+import com.syj.bi.utils.minio.minio.MinioUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import static com.syj.bi.common.ResultUtils.success;
 
@@ -285,10 +293,19 @@ public class ChartController {
         //压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
+        //设置minio存储路径
+        String chartPath = "";
+        String path = String.format("/async_chart/%s/%s.%s", loginUser.getId(), DigestUtils.md5DigestAsHex(UUID.randomUUID().toString().getBytes()),suffix);
+        try {
+            chartPath = MinioUtil.upload(multipartFile, path);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         //将生成的数据插入到数据库中去
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
+        chart.setChartPath(chartPath);
         chart.setChartData(csvData);
         chart.setChartType(chartType);
         chart.setStatus("wait");
@@ -393,6 +410,14 @@ public class ChartController {
         //压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
+        //设置minio存储路径
+        String chartPath = "";
+        String path = String.format("/chart/%s/%s.%s", loginUser.getId(), DigestUtils.md5DigestAsHex(UUID.randomUUID().toString().getBytes()),suffix);
+        try {
+            chartPath = MinioUtil.upload(multipartFile, path);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         // 插入到数据库
         Chart chart = new Chart();
         chart.setName(name);
@@ -400,6 +425,7 @@ public class ChartController {
         chart.setChartData(csvData);
         chart.setChartType(chartType);
         chart.setStatus("wait");
+        chart.setChartPath(chartPath);
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
@@ -493,12 +519,20 @@ public class ChartController {
         // 压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
-
+        //设置minio存储路径
+        String chartPath = "";
+        String path = String.format("/mq_chart/%s/%s.%s", loginUser.getId(), DigestUtils.md5DigestAsHex(UUID.randomUUID().toString().getBytes()),suffix);
+        try {
+            chartPath = MinioUtil.upload(multipartFile, path);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         // 插入到数据库
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
+        chart.setChartPath(chartPath);
         chart.setChartType(chartType);
         chart.setStatus("wait");
         chart.setUserId(loginUser.getId());
@@ -551,5 +585,50 @@ public class ChartController {
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+    /**
+     * 下载对应的文件
+     * @param path
+     * @param response
+     * @throws Exception
+     */
+    @GetMapping("/download")
+    public void fileMinioDownload(@RequestParam("path") String path, HttpServletResponse response) throws Exception {
+        // 解析文件名
+        String name = path.substring(path.lastIndexOf("/") + 1);
+        String fileName = path.split("cmp-file")[1];
+        InputStream in = null;
+        OutputStream out = null;
+        try{
+            in = MinioUtil.getMinioFile(fileName);
+            int length=0;
+            byte[] buffer = new byte[1024];
+            out = response.getOutputStream();
+            response.reset();
+            response.addHeader("Content-Disposition",
+                    " attachment;filename=" + URLEncoder.encode(name, "UTF-8"));
+            response.setContentType("application/octet-stream");
+            while ((length = in.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }finally {
+            if (in != null){
+                try {
+                    in.close();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

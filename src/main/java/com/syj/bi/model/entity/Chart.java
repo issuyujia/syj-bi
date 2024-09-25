@@ -59,6 +59,11 @@ public class Chart implements Serializable {
     private String status;
 
     /**
+     * 图表保存路径
+     */
+    private String chartPath;
+
+    /**
      * 执行过程信息
      */
     private String execMessage;
